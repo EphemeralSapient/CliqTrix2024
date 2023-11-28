@@ -1,0 +1,5 @@
+response = Map();
+response.put("action","reply");
+response.put("replies",{"Hello there! 👋 Looking for anything specific?"});
+response.put("suggestions",{"I want to explore job opportunities","I'm an existing user and give status","I don't know what this website is about!"});
+return response;

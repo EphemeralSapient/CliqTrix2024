@@ -1,0 +1,33 @@
+response = Map();
+msg = message.get("text");
+operation = message.get("operation");
+if(msg.equalsIgnoreCase("I want to explore job opportunities"))
+{
+	response.put("action","context");
+	response.put("context_id","job_opportunities");
+	question = {"name":"job_opportunities","replies":{"Awesome, let's get started! Would you like apply for specific specialization field or display all opening job list?"}};
+	question.put("suggestions",{"I would like to select specific field","Display me every single opening job information!"});
+	response.put("questions",{question});
+}
+else if(msg.equalsIgnoreCase("I'm an existing user and give status"))
+{
+	response.put("action","context");
+	response.put("context_id","existing");
+	question = {"name":"email","replies":{{"text":"Certainly! To assist you further, could you please provide your email details regarding the status you're inquiring about","validate":{"format":"email","error":{"Please enter a valid email"}},"field_name":"siq_email"}}};
+	response.put("questions",{question});
+}
+else if(msg.equalsIgnoreCase("I don't know what this website is about!"))
+{
+	response.put("action","reply");
+	response.put("replies",{"Welcome! Our platform facilitates seamless access to a curated list of job openings and empowers HR professionals to efficiently manage the hiring process. How may I assist you further? (e.g., exploring job opportunities, posting new positions, or navigating through candidate profiles)"});
+	response.put("suggestions",{"I want to explore job opportunities","I'm an existing user and give status","I don't know what this website is about!"});
+}
+else
+{
+	// Handle other scenarios or fallback replies
+	response.put("action","reply");
+	response.put("replies",{"Greetings! 👋 How may I be of assistance to you today? 😊"});
+	response.put("suggestions",{"I want to explore job opportunities","I'm an existing user and give status","I don't know what this website is about!"});
+	return response;
+}
+return response;

@@ -1,0 +1,414 @@
+response = Map();
+response.put("action","context");
+response.put("context_id",context_id);
+replies = List();
+questions = Map();
+if(context_id.equals("job_opportunities"))
+{
+	// Loop check
+	loopNumber = 0;
+	fallBack = false;
+	highJC = 0;
+	highJD = 0;
+	for each  x in answers.keys()
+	{
+		if(x.contains("jobcard"))
+		{
+			jc = x.remove("jobcard ").toNumber();
+			if(jc > highJC)
+			{
+				highJC = jc;
+			}
+		}
+		else if(x.contains("job_details"))
+		{
+			jd = x.remove("job_details ").toNumber();
+			if(jd > highJD)
+			{
+				highJD = jd;
+			}
+		}
+	}
+	if(highJC == highJD)
+	{
+		fallBack = true;
+		loopNumber = highJD + 1;
+	}
+	else
+	{
+		if(highJD > highJC)
+		{
+			fallBack = true;
+			loopNumber = highJD + 1;
+		}
+		else
+		{
+			fallBack = false;
+			loopNumber = highJC + 1;
+		}
+	}
+	// Loop check ends
+	// Loading the data from third party info
+	listV = List();
+	jobsMap = Map();
+	jobsIdk = Map();
+	jobOpenings = zoho.recruit.getRecords("JobOpenings",1,200,"ALL","Job Opening Title","desc","idk");
+	// Handle the result of the job opening records query
+	if(jobOpenings != null && jobOpenings.size() > 0)
+	{
+		// Display details of the first job opening record
+		i = 0;
+		// To remove duplicate offerings
+		cache = List();
+		for each  jobs in jobOpenings
+		{
+			another = Map();
+			another.put("value",i);
+			another.put("label",jobs.get("Posting Title"));
+			fullName = jobs.get("Posting Title");
+			jobsIdk.put(jobs.get("Posting Title") + "-" + jobs.get("Department Name"),jobs);
+			if(jobsMap.containKey(jobs.get("Posting Title")))
+			{
+				// List already exists, so appending
+				job = jobsMap.get(jobs.get("Posting Title"));
+				job.add(jobs);
+				jobsMap.put(jobs.get("Posting Title"),job);
+			}
+			else
+			{
+				// List doesn't exist, creating one	
+				job = List();
+				job.add(jobs);
+				jobsMap.put(jobs.get("Posting Title"),job);
+			}
+			if(cache.contains(fullName) == false)
+			{
+				cache.add(fullName);
+				listV.add(another);
+				i = i + 1;
+			}
+		}
+	}
+	// Check if Apply now is init-ed
+	if(answers.toString().contains("Apply now"))
+	{
+		// Get email address and JOBOPENINGID 
+		jobtitle = answers.get("jobcard " + highJC).get("meta").get("card_data").get("value").get("action").get("name");
+		response.put("context_id","apply_job");
+		question = {"name":"email " + jobsIdk.get(jobtitle).get("JOBOPENINGID"),"replies":{{"text":"Please enter your email address to proceed further","validate":{"format":"email","error":{"Please enter a valid email"}},"field_name":"siq_email"}}};
+		response.put("questions",{question});
+		return response;
+	}
+	ans = answers.get("job_opportunities").get("text");
+	if(ans.equalsIgnoreCase("I would like to select specific field") && !answers.containsKey("joblists"))
+	{
+		questions.put("name","joblists");
+		questions.put("replies",{"Select the jobs that you prefer"});
+		questions.put("input",{"type":"drop-down","placeholder":"Choose one or more","options":listV,"select_label":"Select your choice","min_selection":1,"multiple":true});
+		response.put("questions",{questions});
+	}
+	else if(fallBack)
+	{
+		listJobs = List();
+		// Choose specific job
+		if(ans.equals("Display me every single opening job information!"))
+		{
+			listJobs = listV;
+			// Display all
+		}
+		else
+		{
+			if(answers.containsKey("joblists"))
+			{
+				listJobs = answers.get("joblists").get("meta").get("card_data").get("value");
+			}
+			else
+			{
+				response.put("action","reply");
+				response.put("replies",{"Error occurred! Please retry"});
+			}
+		}
+		// Output image mapping [DEMO]
+		outputImages = List();
+		outputImages.add("https://programiz.pro/resources/content/images/2023/04/software-engineer-daily-tasks-1.png");
+		outputImages.add("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTu85X_o--brnMN3L1sZJ1WwymimuAMWamOmL8P8vsl-qNmC7imB93oMsAhcEbl1jCH-dw&usqp=CAU");
+		outputImages.add("https://media.licdn.com/dms/image/D5612AQEBp4IqI6CKQw/article-cover_image-shrink_720_1280/0/1664264441530?e=2147483647&v=beta&t=6hHX46XKdVibYf2DjQZhIEKqCfEd8WjJUlSbazN0WmY");
+		outputImages.add("https://www.interviewbit.com/blog/wp-content/uploads/2021/07/Software-Engineer-Salary-in-India-800x391.jpg");
+		outputImages.add("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQgBiqT_L-HK1UooSWkC0jq15Q145mKLyV_fPbViDlUD4eL3qtVYJ41M7KeR6xMa2Q3FfU&usqp=CAU");
+		// Time to display it on cards
+		elements = List();
+		for each  x in listJobs
+		{
+			for each  company in jobsMap.get(x.get("label"))
+			{
+				remote = "🌐";
+				if(company.get("Remote Job").equalsIgnoreCase("false"))
+				{
+					remote = "🏢";
+				}
+				val = Map();
+				val.put("title",company.get("Department Name") + remote);
+				val.put("subtitle",x.get("label") + " [ " + company.get("Work Experience") + " ]");
+				val.put("image",outputImages.get(x.get("value")));
+				// WIP
+				val.put("actions",{{"label":"Apply now","name":x.get("label") + "-" + company.get("Department Name"),"type":"client_action","id":x.get("label") + "-" + company.get("Department Name")},{"label":"Get Details","name":x.get("label") + "-" + company.get("Department Name"),"type":"client_action","action":"context","id":x.get("label") + "-" + company.get("Department Name")}});
+				elements.add(val);
+			}
+		}
+		questions.put("name","jobcard " + loopNumber);
+		questions.put("replies",{{"type":"multiple-product","text":"Alright, here's the job list","elements":elements}});
+		response.put("questions",{questions});
+	}
+	else
+	{
+		// Get the job title info from given
+		title = "";
+		inp = answers.get("jobcard " + highJC).get("meta").get("card_data").get("value").get("action").get("name");
+		job = jobsIdk.get(inp);
+		i = Map();
+		// Job Information
+		i.put("📌 Posting Title",job.get("Posting Title"));
+		i.put("🏢 Department Name",job.get("Department Name"));
+		i.put("💼 Job Type",job.get("Job Type"));
+		i.put("👥 Number of Positions",job.get("Number of Positions"));
+		i.put("🌆 City",job.get("City"));
+		i.put("🌍 Country",job.get("Country"));
+		i.put("🌐 Remote Job",job.get("Remote Job"));
+		i.put("🏭 Industry",job.get("Industry"));
+		i.put("👔 Work Experience",job.get("Work Experience"));
+		i.put("💰 Salary",job.get("Salary"));
+		i.put("🎯 Target Date",job.get("Target Date"));
+		i.put("📅 Date Opened",job.get("Date Opened"));
+		// Applicant Information
+		i.put("📥 No of Applications",job.get("No of Applications"));
+		i.put("📤 No of Applications Hired",job.get("No of Applications Hired"));
+		// Status Information
+		i.put("🚀 Job Opening Status",job.get("Job Opening Status"));
+		i.put("🔥 Is Hot Job Opening",job.get("Is Hot Job Opening"));
+		// Display the information
+		out = List();
+		for each  ind in i.keys()
+		{
+			value = i.get(ind);
+			if(value.equalsIgnoreCase("false"))
+			{
+				value = "No";
+			}
+			else if(value.equalsIgnoreCase("true"))
+			{
+				value = "Yes";
+			}
+			out.add(ind + " : " + value);
+		}
+		response.put("questions",{{"name":"job_details " + loopNumber,"replies":out,"suggestions":{"Apply now","Not interested"}}});
+	}
+}
+else if(context_id.contains("apply_job"))
+{
+	// Get the email from keys on answers variable
+	email = "";
+	for each  x in answers.keys()
+	{
+		if(x.contains("email "))
+		{
+			email = x;
+		}
+	}
+	jobId = email.toList(" ").get(1);
+	email = answers.get(email).get("text");
+	info "Entered email is " + email;
+	db_email = zoho.recruit.searchRecords("Candidates","Email|=|" + email,1,3,"(First Name,Mobile,CANDIDATEID)","idk").get(0);
+	info db_email.get("Status");
+	if(db_email.containsKey("message"))
+	{
+		if(answers.containsKey("name"))
+		{
+			if(answers.containsKey("resume"))
+			{
+				if(answers.containsKey("phoneno"))
+				{
+					// Add the candidate to recruit db
+					candidatesMap = Map();
+					name = answers.get("name").get("text");
+					if(!name.contains(" "))
+					{
+						name = name + " ";
+					}
+					name = name.toList(" ");
+					firstName = name.get(0);
+					lastName = "_";
+					if(name.size() == 2)
+					{
+						lastName = name.get(1);
+					}
+					else if(name.size() > 2)
+					{
+						lastName = name.remove(name.get(1)).toString();
+					}
+					candidatesMap.put("First Name",firstName);
+					candidatesMap.put("Last Name",lastName);
+					candidatesMap.put("Email",email);
+					candidatesMap.put("Mobile",answers.get("phoneno").get("text"));
+					candidatesMap.put("Experience in years","5");
+					candidatesMap.put("Current Job Title","Assistant Manager");
+					candidatesMap.put("Skill Set",answers.get("resume").get("text"));
+					candidatesMap.put("Experience Details","Working in UTS for 5 years");
+					candidatesMap.put("Source","SalesIQ");
+					candidatesMap.put("Status","Active");
+					info zoho.recruit.addRecord("Candidates",candidatesMap,2,false,"idk");
+					cid = zoho.recruit.searchRecords("Candidates","Email|=|" + email,1,3,"(CANDIDATEID)","idk").get(0).get("CANDIDATEID");
+					// OTP verification time it is
+					otp = randomnumber(1000,9999).floor();
+					info otp;
+					res = invokeurl
+					[
+						url :"https://instantalerts.co/api/web/send?apikey=[API_KEY]&sender=SEDEMO&to=91" + answers.get("phoneno").get("text") + "&message=Mobile+Number+verification+code+is+" + otp + "+Do+not+share+it"
+						type :GET
+						connection:"idk"
+					];
+					info res;
+					response.put("context_id","otp " + jobId + " " + cid);
+					question = {"name":"otp " + otp,"replies":{{"text":"An OTP has been dispatched. Kindly proceed by entering the code below","validate":{"format":"number","error":{"Please enter a valid OTP of 4 digit"}},"field_name":"siq_phone"}}};
+					response.put("questions",{question});
+					return response;
+				}
+				else
+				{
+					// Get the phone number finally
+					question = {"name":"phoneno","replies":{{"text":"Thank you! 🌟 Kindly enter your 10-digit phone number for OTP verification","field_name":"siq_phone"}}};
+					response.put("questions",{question});
+				}
+			}
+			else
+			{
+				// Afer name, get resume
+				question = {"name":"resume","replies":{{"text":"Please share your resume link, be it an image or a website URL","field_name":"siq_name"}}};
+				response.put("questions",{question});
+			}
+		}
+		else
+		{
+			// Get the name first
+			question = {"name":"name","replies":{{"text":"Apologies, it appears that there is no account associated. Could you kindly provide your name?","field_name":"siq_name"}}};
+			response.put("questions",{question});
+		}
+	}
+	else
+	{
+		// OTP verification
+		otp = randomnumber(1000,9999).floor();
+		info otp;
+		res = invokeurl
+		[
+			url :"https://instantalerts.co/api/web/send?apikey=[API_KEY]&sender=SEDEMO&to=91" + db_email.get("Mobile") + "&message=Mobile+Number+verification+code+is+" + otp + "+Do+not+share+it"
+			type :GET
+			connection:"idk"
+		];
+		info res;
+		response.put("context_id","otp " + jobId + " " + db_email.get("CANDIDATEID"));
+		question = {"name":"otp " + otp,"replies":{{"text":"Welcome back, " + db_email.get("First Name") + "! 🌟 An OTP has been sent to your registered phone for verification. Please enter it here.","validate":{"format":"number","error":{"Please enter a valid OTP of 4 digit"}},"field_name":"siq_phone"}}};
+		response.put("questions",{question});
+	}
+}
+else if(context_id.contains("otp "))
+{
+	otpname = answers.keys().sort(false).get(0);
+	otp = otpname.toList(" ").get(1);
+	if(otp.equalsIgnoreCase(answers.get(otpname).get("text")))
+	{
+		split = context_id.toList(" ");
+		jobId = split.get(1);
+		cId = split.get(2);
+		getToken = invokeurl
+		[
+			url :"https://accounts.zoho.in/oauth/v2/token?grant_type=refresh_token&client_id=1000.1BT2FTEVA1IF95KB2WSVVAMGHITS6G&client_secret=[TOKEN]&refresh_token=[TOKEN]"
+			type :POST
+		];
+		oauthToken = getToken.get("access_token");
+		candidateIds = {cId};
+		jobOpeningIds = {jobId};
+		comments = "Record successfully associated";
+		// Construct the API endpoint for associating candidates with job openings
+		apiEndpoint = "https://recruit.zoho.in/recruit/v2/Candidates/actions/associate";
+		// Create the request headers
+		headers = Map();
+		headers.put("Authorization","Zoho-oauthtoken " + oauthToken);
+		// Construct the request body
+		requestData = Map();
+		// Construct the request body
+		candidateData = Map();
+		candidateData.put("jobids",jobOpeningIds);
+		candidateData.put("ids",candidateIds);
+		candidateData.put("comments",comments);
+		requestData.put("data",{candidateData});
+		// Make the API request
+		a = invokeurl
+		[
+			url :apiEndpoint
+			type :PUT
+			parameters:requestData.toString()
+			headers:headers
+			connection:"idk"
+		];
+		info a;
+		output = "Successfully enrolled!";
+		if(a.get("data").get("0").get("code").equalsIgnoreCase("FAILURE"))
+		{
+			output = "Failed, " + a.get("data").get("0").get("details").get("error").get(0).get("message");
+		}
+		response.put("action","reply");
+		response.put("replies",{output});
+		response.put("suggestions",{"Okay"});
+	}
+	else
+	{
+		questions.put("name","idk");
+		questions.put("replies",{"⚠️ Invalid OTP. Please retry for a successful entry"});
+		response.put("questions",{questions});
+	}
+}
+else if(context_id.contains("existing"))
+{
+	email = answers.get("email").get("text");
+	db_cand = zoho.recruit.searchRecords("Candidates","Email|=|" + email,1,199,"(First Name,Mobile,CANDIDATEID)","idk").get(0);
+	if(db_cand.containsKey("code"))
+	{
+		response.put("action","reply");
+		response.put("replies",{"No such account found in database with assoicated email!"});
+		response.put("suggestions",{"Okay"});
+		return response;
+	}
+	// Check if any assoicated opening jobs exist
+	getToken = invokeurl
+	[
+		url :"https://accounts.zoho.in/oauth/v2/token?grant_type=refresh_token&client_id=1000.1BT2FTEVA1IF95KB2WSVVAMGHITS6G&client_secret=[TOKEN]&refresh_token=[TOKEN]"
+		type :POST
+	];
+	oauthToken = getToken.get("access_token");
+	candidateIds = db_cand.get("CANDIDATEID");
+	// Construct the API endpoint for associating candidates with job openings
+	apiEndpoint = "https://recruit.zoho.in/recruit/v2/Candidates/" + candidateIds + "/associate";
+	// Create the request headers
+	headers = Map();
+	headers.put("Authorization","Zoho-oauthtoken " + oauthToken);
+	// Make the API request
+	assoicates = invokeurl
+	[
+		url :apiEndpoint
+		type :GET
+		headers:headers
+		connection:"idk"
+	];
+	if(isNull(assoicates))
+	{
+		response.put("action","reply");
+		response.put("replies",{"Welcome back, " + db_cand.get("First Name") + "! 🌟 You have not enrolled in any jobs yet."});
+		response.put("suggestions",{"Okay"});
+		return response;
+	}
+	// Display the jobs assoicated with the candidates
+	info assoicates;
+	question = {"name":"wut","replies":{assoicates}};
+	response.put("questions",{question});
+}
+return response;
